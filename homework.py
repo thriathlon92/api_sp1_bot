@@ -15,21 +15,21 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 BASE_URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
 
+MESSAGE_DATA = {
+    'rejected': 'К сожалению в работе нашлись ошибки.',
+    'reviewing': 'работа взята в ревью',
+    'approved': ('Ревьюеру всё понравилось, можно приступать'
+                 ' к следующему уроку.'),
+}
+
 
 def parse_homework_status(homework):
-    try:
-        homework_name = homework.get('homework_name')
-    except KeyError as er:
-        logging.error(er)
-    else:
-        if homework.get('status') == 'rejected':
-            verdict = 'К сожалению в работе нашлись ошибки.'
-        elif homework.get('status') == 'reviewing':
-            verdict = 'работа взята в ревью'
-        else:
-            verdict = ('Ревьюеру всё понравилось, можно приступать'
-                       ' к следующему уроку.')
-        return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
+    homework_name = homework['homework_name']
+    for key in MESSAGE_DATA:
+        if homework['status'] == key:
+            verdict = MESSAGE_DATA[key]
+            return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
+    raise KeyError('ошибка данных')
 
 
 def get_homework_statuses(current_timestamp):
@@ -55,7 +55,7 @@ def send_message(message, bot_client):
 
 def main():
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time())
+    current_timestamp = 0  # int(time.time())
 
     while True:
         try:
