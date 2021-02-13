@@ -22,14 +22,17 @@ MESSAGE_DATA = {
                  ' к следующему уроку.'),
 }
 
+REVIEWER_ANSWER = 'У вас проверили работу "{key_to_insert}"! {second_key}'
+
 
 def parse_homework_status(homework):
     homework_name = homework['homework_name']
     for key in MESSAGE_DATA:
         if homework['status'] == key:
             verdict = MESSAGE_DATA[key]
-            return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
-    raise KeyError('ошибка данных')
+            return REVIEWER_ANSWER.format(key_to_insert=homework_name,
+                                          second_key=verdict)
+    raise KeyError(f'ошибка ключа{homework_name}')
 
 
 def get_homework_statuses(current_timestamp):
@@ -43,10 +46,10 @@ def get_homework_statuses(current_timestamp):
             raise Exception(f'ошибка: {er}')
         else:
             if response.json().get('error'):
-                raise Exception(f'ошибка: ')
+                raise Exception(f'Ошибка ответа сервера')
             return response.json()
     else:
-        print('ошибка данных')
+        raise Exception('ошибка данных')
 
 
 def send_message(message, bot_client):
@@ -54,10 +57,10 @@ def send_message(message, bot_client):
 
 
 def main():
+    logging.basicConfig(filename='main.log', filemode='w')
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
     logging.debug('Я бот и я запустился')
     current_timestamp = int(time.time())
-    current_timestamp = int(0)
     while True:
         try:
             new_homework = get_homework_statuses(current_timestamp)
@@ -76,5 +79,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='main.log', filemode='w')
     main()
