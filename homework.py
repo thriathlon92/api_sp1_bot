@@ -46,7 +46,7 @@ def get_homework_statuses(current_timestamp):
             raise Exception(f'ошибка: {er}')
         else:
             if response.json().get('error'):
-                raise Exception(f'Ошибка ответа сервера')
+                raise Exception('Ошибка ответа сервера')
             return response.json()
     else:
         raise Exception('ошибка данных')
