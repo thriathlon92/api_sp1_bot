@@ -55,7 +55,7 @@ def send_message(message, bot_client):
 
 
 def main():
-    logging.basicConfig(filename=__file__+'main.log', filemode='w')
+    logging.basicConfig(filename=__file__ + 'main.log', filemode='w')
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
     bot_start_message = 'Я бот и я запустился'
     logging.debug(bot_start_message)
