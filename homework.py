@@ -18,48 +18,47 @@ HEADERS = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
 MESSAGE_DATA = {
     'rejected': 'К сожалению в работе нашлись ошибки.',
     'reviewing': 'работа взята в ревью',
-    'approved': ('Ревьюеру всё понравилось, можно приступать'
-                 ' к следующему уроку.'),
+    'approved': 'Ревьюеру всё понравилось, можно приступать'
+                ' к следующему уроку.',
 }
 
-REVIEWER_ANSWER = 'У вас проверили работу "{key_to_insert}"! {second_key}'
+REVIEWER_ANSWER = 'У вас проверили работу "{homework_name}"! {verdict}'
 
 
 def parse_homework_status(homework):
     homework_name = homework['homework_name']
-    for key in MESSAGE_DATA:
-        if homework['status'] == key:
-            verdict = MESSAGE_DATA[key]
-            return REVIEWER_ANSWER.format(key_to_insert=homework_name,
-                                          second_key=verdict)
-    raise KeyError(f'ошибка ключа{homework_name}')
+    error1 = f'Ключа {homework["status"]} нет в словаре {MESSAGE_DATA}'
+    if homework['status'] not in MESSAGE_DATA:
+        raise ValueError(error1)
+    verdict = MESSAGE_DATA[homework['status']]
+    return REVIEWER_ANSWER.format(homework_name=homework_name,
+                                  verdict=verdict)
 
 
 def get_homework_statuses(current_timestamp):
     params = {'from_date': current_timestamp}
-    headers = HEADERS
-    if current_timestamp is not None:
-        try:
-            response = requests.get(
-                BASE_URL, headers=headers, params=params)
-        except requests.RequestException as er:
-            raise Exception(f'ошибка: {er}')
-        else:
-            if response.json().get('error'):
-                raise Exception('Ошибка ответа сервера')
-            return response.json()
-    else:
-        raise Exception('ошибка данных')
+    error = f'ошибка запроса {BASE_URL}, {HEADERS}, {params}'
+    try:
+        response = requests.get(
+            BASE_URL, headers=HEADERS, params=params)
+    except requests.RequestException as er:
+        raise requests.HTTPError(error, er)
+    r = response.json()
+    if r.get('error') or r.get('code'):
+        raise requests.exceptions.HTTPError('Ошибка ответа сервера')
+    return r
 
 
 def send_message(message, bot_client):
+    logging.info('Отправлено сообщение в чат Telegram')
     return bot_client.send_message(chat_id=CHAT_ID, text=message)
 
 
 def main():
-    logging.basicConfig(filename='main.log', filemode='w')
+    logging.basicConfig(filename=__file__+'main.log', filemode='w')
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
-    logging.debug('Я бот и я запустился')
+    bot_start_message = 'Я бот и я запустился'
+    logging.debug(bot_start_message)
     current_timestamp = int(time.time())
     while True:
         try:
@@ -70,11 +69,10 @@ def main():
                     bot_client)
             current_timestamp = new_homework.get('current_date',
                                                  current_timestamp)
-            logging.info('Отправлено сообщение в чат Telegram')
             time.sleep(TIME_SLEEP1)
 
-        except requests.RequestException as e:
-            logging.debug(f'Бот столкнулся с ошибкой: {e}')
+        except requests.RequestException:
+            logging.debug(f'Бот столкнулся с ошибкой: {Exception}')
             time.sleep(TIME_SLEEP)
 
 
