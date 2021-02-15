@@ -23,43 +23,50 @@ MESSAGE_DATA = {
 }
 
 REVIEWER_ANSWER = 'У вас проверили работу "{homework_name}"! {verdict}'
+ERROR = 'ошибка запроса "{base_url}", "{headers}", {params}'
+ERROR1 = 'Ошибка ответа сервера "{base_url}", "{headers}", {params}'
+logging.info('Отправлено сообщение в чат Telegram')
 
 
 def parse_homework_status(homework):
     homework_name = homework['homework_name']
-    error1 = f'Ключа {homework["status"]} нет в словаре {MESSAGE_DATA}'
-    if homework['status'] not in MESSAGE_DATA:
+    status = homework["status"]
+    error1 = f'Неожиданный ответ {status}'
+    if status not in MESSAGE_DATA:
         raise ValueError(error1)
-    verdict = MESSAGE_DATA[homework['status']]
+    verdict = MESSAGE_DATA[status]
     return REVIEWER_ANSWER.format(homework_name=homework_name,
                                   verdict=verdict)
 
 
 def get_homework_statuses(current_timestamp):
     params = {'from_date': current_timestamp}
-    error = f'ошибка запроса {BASE_URL}, {HEADERS}, {params}'
     try:
         response = requests.get(
             BASE_URL, headers=HEADERS, params=params)
     except requests.RequestException as er:
-        raise requests.HTTPError(error, er)
+        raise ConnectionError(ERROR.format(
+            base_url=BASE_URL, headers=HEADERS, params=params), f'ошибка:{er}')
     r = response.json()
-    if r.get('error') or r.get('code'):
-        raise requests.exceptions.HTTPError('Ошибка ответа сервера')
+    print(r)
+    for key in r:
+        if key == ('error' or 'code'):
+            raise RuntimeError(ERROR1.format(
+                base_url=BASE_URL, headers=HEADERS, params=params),
+                f'ошибка {r[key]}')
     return r
 
 
 def send_message(message, bot_client):
-    logging.info('Отправлено сообщение в чат Telegram')
     return bot_client.send_message(chat_id=CHAT_ID, text=message)
 
 
 def main():
-    logging.basicConfig(filename=__file__ + 'main.log', filemode='w')
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
     bot_start_message = 'Я бот и я запустился'
     logging.debug(bot_start_message)
     current_timestamp = int(time.time())
+    current_timestamp = 0
     while True:
         try:
             new_homework = get_homework_statuses(current_timestamp)
@@ -71,10 +78,12 @@ def main():
                                                  current_timestamp)
             time.sleep(TIME_SLEEP1)
 
-        except requests.RequestException:
-            logging.debug(f'Бот столкнулся с ошибкой: {Exception}')
-            time.sleep(TIME_SLEEP)
+        except requests.RequestException as er:
+            logging.debug(f'Бот столкнулся с ошибкой: {er}')
+            raise Exception(f'Бот столкнулся с ошибкой: {er}')
+        time.sleep(TIME_SLEEP)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(filename=__file__ + 'main.log', filemode='w')
     main()
