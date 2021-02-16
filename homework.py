@@ -23,17 +23,19 @@ MESSAGE_DATA = {
 }
 
 REVIEWER_ANSWER = 'У вас проверили работу "{homework_name}"! {verdict}'
-ERROR = 'ошибка запроса "{base_url}", "{headers}", {params}'
-ERROR1 = 'Ошибка ответа сервера "{base_url}", "{headers}", {params}'
-logging.info('Отправлено сообщение в чат Telegram')
+ERROR = 'ошибка запроса "{base_url}", "{headers}", "{params}"! Ошибка {error}'
+ERROR1 = ('Ошибка ответа сервера "{base_url}", "{headers}", "{params}"!'
+          'Ошибка {response_json}')
+ERROR2 = 'Неожиданный ответ {status}'
+ERROR_DEBUG = 'Бот столкнулся с ошибкой: {error}'
+bot_start_message = 'Я бот и я запустился'
 
 
 def parse_homework_status(homework):
     homework_name = homework['homework_name']
     status = homework["status"]
-    error1 = f'Неожиданный ответ {status}'
     if status not in MESSAGE_DATA:
-        raise ValueError(error1)
+        raise ValueError(ERROR2.format(status=status))
     verdict = MESSAGE_DATA[status]
     return REVIEWER_ANSWER.format(homework_name=homework_name,
                                   verdict=verdict)
@@ -44,17 +46,24 @@ def get_homework_statuses(current_timestamp):
     try:
         response = requests.get(
             BASE_URL, headers=HEADERS, params=params)
-    except requests.RequestException as er:
+    except requests.RequestException as error:
         raise ConnectionError(ERROR.format(
-            base_url=BASE_URL, headers=HEADERS, params=params), f'ошибка:{er}')
-    r = response.json()
-    print(r)
-    for key in r:
-        if key == ('error' or 'code'):
+            base_url=BASE_URL, headers=HEADERS, params=params, error=error))
+    response_json = response.json()
+    for key in response_json:
+        if key == 'error':
             raise RuntimeError(ERROR1.format(
-                base_url=BASE_URL, headers=HEADERS, params=params),
-                f'ошибка {r[key]}')
-    return r
+                base_url=BASE_URL,
+                headers=HEADERS,
+                params=params,
+                response_json=response_json[key]))
+        if key == 'code':
+            raise RuntimeError(ERROR1.format(
+                base_url=BASE_URL,
+                headers=HEADERS,
+                params=params,
+                response_json=response_json[key]))
+    return response_json
 
 
 def send_message(message, bot_client):
@@ -63,10 +72,8 @@ def send_message(message, bot_client):
 
 def main():
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
-    bot_start_message = 'Я бот и я запустился'
     logging.debug(bot_start_message)
     current_timestamp = int(time.time())
-    current_timestamp = 0
     while True:
         try:
             new_homework = get_homework_statuses(current_timestamp)
@@ -77,10 +84,8 @@ def main():
             current_timestamp = new_homework.get('current_date',
                                                  current_timestamp)
             time.sleep(TIME_SLEEP1)
-
-        except requests.RequestException as er:
-            logging.debug(f'Бот столкнулся с ошибкой: {er}')
-            raise Exception(f'Бот столкнулся с ошибкой: {er}')
+        except Exception as error:
+            logging.debug(ERROR_DEBUG.format(error=error))
         time.sleep(TIME_SLEEP)
 
 
