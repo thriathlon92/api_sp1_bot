@@ -23,22 +23,21 @@ MESSAGE_DATA = {
 }
 
 REVIEWER_ANSWER = 'У вас проверили работу "{homework_name}"! {verdict}'
-ERROR = 'ошибка запроса "{base_url}", "{headers}", "{params}"! Ошибка {error}'
-ERROR1 = ('Ошибка ответа сервера "{base_url}", "{headers}", "{params}"!'
-          'Ошибка {response_json}')
-ERROR2 = 'Неожиданный ответ {status}'
+ERROR_GET_HOMEWORK = ('ошибка запроса "{base_url}",'
+                      ' "{headers}", "{params}"! Ошибка {error}')
+ERROR_JSON = ('Ошибка ответа сервера "{base_url}", "{headers}", "{params}"!'
+              'Ошибка {response_json}')
+ERROR_PARSE_HOMEWORK = 'Неожиданный ответ {status}'
 ERROR_DEBUG = 'Бот столкнулся с ошибкой: {error}'
-bot_start_message = 'Я бот и я запустился'
+BOT_START_MESSAGE = 'Я бот и я запустился'
 
 
 def parse_homework_status(homework):
-    homework_name = homework['homework_name']
     status = homework["status"]
     if status not in MESSAGE_DATA:
-        raise ValueError(ERROR2.format(status=status))
-    verdict = MESSAGE_DATA[status]
-    return REVIEWER_ANSWER.format(homework_name=homework_name,
-                                  verdict=verdict)
+        raise ValueError(ERROR_PARSE_HOMEWORK.format(status=status))
+    return REVIEWER_ANSWER.format(homework_name=homework['homework_name'],
+                                  verdict=MESSAGE_DATA[status])
 
 
 def get_homework_statuses(current_timestamp):
@@ -47,22 +46,21 @@ def get_homework_statuses(current_timestamp):
         response = requests.get(
             BASE_URL, headers=HEADERS, params=params)
     except requests.RequestException as error:
-        raise ConnectionError(ERROR.format(
+        raise ConnectionError(ERROR_GET_HOMEWORK.format(
             base_url=BASE_URL, headers=HEADERS, params=params, error=error))
     response_json = response.json()
-    for key in response_json:
-        if key == 'error':
-            raise RuntimeError(ERROR1.format(
-                base_url=BASE_URL,
-                headers=HEADERS,
-                params=params,
-                response_json=response_json[key]))
-        if key == 'code':
-            raise RuntimeError(ERROR1.format(
-                base_url=BASE_URL,
-                headers=HEADERS,
-                params=params,
-                response_json=response_json[key]))
+    if 'error' in response_json:
+        raise RuntimeError(ERROR_JSON.format(
+            base_url=BASE_URL,
+            headers=HEADERS,
+            params=params,
+            response_json=response_json['error']))
+    if 'code' in response_json:
+        raise RuntimeError(ERROR_JSON.format(
+            base_url=BASE_URL,
+            headers=HEADERS,
+            params=params,
+            response_json=response_json['code']))
     return response_json
 
 
@@ -72,7 +70,7 @@ def send_message(message, bot_client):
 
 def main():
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
-    logging.debug(bot_start_message)
+    logging.debug(BOT_START_MESSAGE)
     current_timestamp = int(time.time())
     while True:
         try:
@@ -90,5 +88,9 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(filename=__file__ + 'main.log', filemode='w')
+    FORMAT = '%(asctime)-15s %(message)s'
+    logging.basicConfig(format=FORMAT,
+                        level=logging.INFO,
+                        filename=__file__ + 'main.log',
+                        filemode='w')
     main()
