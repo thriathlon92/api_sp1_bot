@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TIME_SLEEP = 5
-TIME_SLEEP1 = 1200
+TIME_SLEEP = 1200
 PRAKTIKUM_TOKEN = os.getenv("PRAKTIKUM_TOKEN")
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -49,19 +48,14 @@ def get_homework_statuses(current_timestamp):
         raise ConnectionError(ERROR_GET_HOMEWORK.format(
             base_url=BASE_URL, headers=HEADERS, params=params, error=error))
     response_json = response.json()
-    if 'error' in response_json:
-        raise RuntimeError(ERROR_JSON.format(
-            base_url=BASE_URL,
-            headers=HEADERS,
-            params=params,
-            response_json=response_json['error']))
-    if 'code' in response_json:
-        raise RuntimeError(ERROR_JSON.format(
-            base_url=BASE_URL,
-            headers=HEADERS,
-            params=params,
-            response_json=response_json['code']))
-    return response_json
+    for key in ['error', 'code']:
+        if key in response_json:
+            raise RuntimeError(ERROR_JSON.format(
+                base_url=BASE_URL,
+                headers=HEADERS,
+                params=params,
+                response_json=response_json[key]))
+        return response_json
 
 
 def send_message(message, bot_client):
@@ -81,10 +75,11 @@ def main():
                     bot_client)
             current_timestamp = new_homework.get('current_date',
                                                  current_timestamp)
-            time.sleep(TIME_SLEEP1)
+            time.sleep(TIME_SLEEP)
         except Exception as error:
+            send_message(message=ERROR_DEBUG.format(error=error),
+                         bot_client=bot_client)
             logging.debug(ERROR_DEBUG.format(error=error))
-        time.sleep(TIME_SLEEP)
 
 
 if __name__ == '__main__':
