@@ -28,7 +28,9 @@ ERROR_JSON = ('Ошибка ответа сервера "{base_url}", "{headers}
               'Ошибка {response_json}')
 ERROR_PARSE_HOMEWORK = 'Неожиданный ответ {status}'
 ERROR_DEBUG = 'Бот столкнулся с ошибкой: {error}'
+ERROR_SEND_DEBUG = 'Ошибка при отправке debug сообщения с Telegram: {error}'
 BOT_START_MESSAGE = 'Я бот и я запустился'
+TELEGRAM_MESSAGE = 'Собщение {message} отправленно в Telegram'
 
 
 def parse_homework_status(homework):
@@ -73,13 +75,19 @@ def main():
                 send_message(
                     parse_homework_status(new_homework.get('homeworks')[0]),
                     bot_client)
+                logging.info(TELEGRAM_MESSAGE.format(
+                    message=parse_homework_status(
+                        new_homework.get('homeworks')[0])))
             current_timestamp = new_homework.get('current_date',
                                                  current_timestamp)
             time.sleep(TIME_SLEEP)
         except Exception as error:
-            send_message(message=ERROR_DEBUG.format(error=error),
-                         bot_client=bot_client)
-            logging.debug(ERROR_DEBUG.format(error=error))
+            try:
+                send_message(message=ERROR_DEBUG.format(error=error),
+                             bot_client=bot_client)
+                logging.debug(ERROR_DEBUG.format(error=error))
+            except Exception as error:
+                logging.debug(ERROR_SEND_DEBUG.format(error=error))
 
 
 if __name__ == '__main__':
